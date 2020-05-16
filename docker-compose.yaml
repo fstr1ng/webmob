@@ -1,14 +1,148 @@
-version: '2'
+version: '3.5'
+
+volumes:
+  grafana:
+
+configs:
+  nextcloud_response:
+    file: ./configs/nextcloud/response.php
 
 services:
-  nginx-proxy:
+  nginx:
+    container_name: nginx-proxy
     image: jwilder/nginx-proxy
     ports:
      - "80:80"
     volumes:
      - /var/run/docker.sock:/tmp/docker.sock:ro
-  
-  whoami:
-    image: jwilder/whoami
+     - /var/nginx/certs:/etc/nginx/certs
     environment:
-     - VIRTUAL_HOST=whoami.local
+     - DEFAULT_HOST=web.local
+
+  portainer:
+    image: portainer/portainer
+    container_name: port.web.local
+    volumes:
+     - /var/run/docker.sock:/var/run/docker.sock:ro
+     - /var/portainer:/data
+    environment:
+     - VIRTUAL_HOST=port.web.local
+
+  organizr:
+    image: organizrtools/organizr-v2
+    container_name: web.local
+    volumes:
+     - /var/organizr:/data
+    environment:
+     - VIRTUAL_HOST=web.local
+
+  glances:
+    image: nicolargo/glances
+    container_name: top.web.local
+    volumes:
+     - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+     - GLANCES_OPT=-w
+     - VIRTUAL_HOST=top.web.local
+     - VIRTUAL_PORT=61208
+
+  netdata:
+    image: netdata/netdata
+    container_name: net.web.local
+    volumes:
+     - /var/run/docker.sock:/var/run/docker.sock:ro
+     - /etc/passwd:/host/etc/passwd:ro
+     - /etc/group:/host/etc/group:ro
+     - /proc:/host/proc:ro
+     - /sys:/host/sys:ro
+    security_opt:
+     - apparmor=unconfined
+    cap_add:
+     - SYS_PTRACE
+    environment:
+     - VIRTUAL_HOST=net.web.local
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prom.web.local
+    environment:
+     - VIRTUAL_HOST=prom.web.local
+  
+  grafana:
+    image: grafana/grafana
+    container_name: graf.web.local
+    volumes:
+     - grafana:/var/lib/grafana
+    environment:
+     - VIRTUAL_HOST=graf.web.local
+     - GF_SECURITY_ALLOW_EMBEDDING=true
+
+  cogs:
+    image: gogs/gogs
+    container_name: git.web.local
+    ports:
+     - "265:22"
+    volumes:
+     - /var/gogs:/data
+    environment:
+     - VIRTUAL_HOST=git.web.local
+     - VIRTUAL_PORT=3000
+
+  hastebin:
+    image: rlister/hastebin
+    container_name: bin.web.local
+    volumes:
+     - /var/hastebin:/app/data
+    environment:
+     - STORAGE_TYPE=file
+     - VIRTUAL_HOST=bin.web.local
+
+  filestash:
+    image: machines/filestash
+    container_name: file.web.local
+    environment:
+     - VIRTUAL_HOST=file.web.local
+     - VIRTUAL_PORT=8334
+
+  transmission:
+    image: linuxserver/transmission
+    container_name: trans.web.local
+    ports:
+     - 51413:51413
+     - 51413:51413/udp
+    volumes:
+     - /var/transmission/config:/config
+     - /var/transmission/downloads:/downloads
+     - /var/transmission/watch:/watch
+    environment:
+     - PUID=1000
+     - PGID=1000
+     - TZ=Europe/London
+     - TRANSMISSION_WEB_HOME=/combustion-release/ #optional
+     - USER=username #optional
+     - PASS=password #optional
+     - VIRTUAL_HOST=trans.web.local
+     - VIRTUAL_PORT=9091
+
+  xbackbone:
+    image: pe46dro/xbackbone-docker 
+    container_name: bone.web.local
+    volumes:
+     - /var/share:/app/storage
+     - /var/xbackbone/database:/database
+    environment:
+     - APP_NAME=XBackBone
+     - URL=http://bone.web.local
+     - VIRTUAL_HOST=bone.web.local
+     - VIRTUAL_PORT=80
+
+  nextcloud:
+    image: nextcloud
+    container_name: next.web.local
+    configs:
+     - source: nextcloud_response
+       target: /var/www/html/lib/private/legacy/response.php
+    volumes:
+     - /var/nextcloud:/var/www/html
+    environment:
+     - VIRTUAL_HOST=next.web.local
